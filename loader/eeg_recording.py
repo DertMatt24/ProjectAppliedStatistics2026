@@ -1,4 +1,4 @@
-from os.path import join, isdir
+from os.path import join, isdir, isfile
 from pathlib import Path
 from typing import Union, Tuple
 from warnings import warn
@@ -157,7 +157,7 @@ class EEGLoader:
         parent_directory = Path(parent_directory)
         file_name = EEGLoader._ids_to_file_name(patient_id, night_id)
         full_path = join(parent_directory, file_name)
-        if not isdir(full_path):
+        if not isfile(full_path):
             warn(f"Attempted to load data at {full_path} but it doesn't exist".format(full_path=full_path))
             return None
 
