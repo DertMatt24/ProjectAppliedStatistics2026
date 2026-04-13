@@ -115,7 +115,7 @@ class EEGRecording:
         a 2d matrix as specified in the kaggle dataset.
         :return: the number of channels
         """
-        return 0 if not self.data else np.size(self.data[0])
+        return 0 if (self.data is None) else np.size(self.data[0])
 
     def num_samples(self) -> int:
         """ Returns the number of samples in the EEG recording"""
