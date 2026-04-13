@@ -1,6 +1,6 @@
 from typing import Union
 from pathlib import Path
-from os.path import isdir
+from os.path import isdir, isfile
 from warnings import warn
 
 import pandas as pd
@@ -15,7 +15,7 @@ class PatientsCSVLoader:
         :param path: the data path
         :return: a pandas dataframe
         """
-        if not isdir(path):
+        if not isfile(path):
             warn(f"The given path does not exist: {path}.")
             return None
         df = pd.read_csv(path)
@@ -29,7 +29,7 @@ class PatientsCSVLoader:
         :return: a python dictionary
         """
 
-        if not isdir(path):
+        if not isfile(path):
             warn(f"The given path does not exist: {path}.")
             return None
         keys = ("user_id", "night_id", "age", "sex", "height",
