@@ -172,6 +172,30 @@ class EEGLoader:
         return eeg_data
 
     @staticmethod
+    def load_returning_npy(parent_directory: Union[str, Path], patient_id: int, night_id: int) -> Union[EEGRecording, None]:
+        """ Load an EEG associated with a given patient and a given night into an EEGRecording wrapper
+                object.
+
+                :param parent_directory: The directory containing all recordings for the patients, or simply containing
+                    the file.
+                :param patient_id: The id of the patient as assigned in the csv file
+                :param night_id: The id of the night as assigned in the csv file
+                :return: the eeg data, a tndarray.
+                """
+        parent_directory = Path(parent_directory)
+        file_name = EEGLoader._ids_to_file_name(patient_id, night_id)
+        full_path = join(parent_directory, file_name)
+        if not isfile(full_path):
+            warn(f"Attempted to load data at {full_path} but it doesn't exist".format(full_path=full_path))
+            return None
+
+        data = np.load(full_path, mmap_mode='r')
+
+        # Use the default numpy loader
+        return data
+
+
+    @staticmethod
     def _ids_to_file_name(patient_id: int, night_id: int) -> str:
         """ Create the data path from the two ids, as specified in the kaggle dataset."""
         return f"User-{patient_id}-Night-{night_id}.npy"

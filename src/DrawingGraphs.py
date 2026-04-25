@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import seaborn as sns
 import pandas as pd
-
+import numpy as np
 
 # user_id - Unique user id [Range 1-40]
 # night_id - Night id of the row [Range 1-2]
@@ -177,6 +177,129 @@ class DrawingGraphs:
         g.fig.tight_layout()
 
         plt.show()
+
+    @staticmethod
+    def plot_PSD(fs, data):
+        """
+        This method plots the PSD (Power Spectral Density) of the data.
+        PSD analysis is a frequency-domain technique used to identify how much power (or signal intensity)
+        is distributed across different frequencies in a signal. It is the industry standard for analyzing random, complex vibrations or signals that
+        persist over time. PSD helps determine the dominant frequencies in data, often used to predict, control, or analyze dynamic
+        responses and vibrations
+
+        Args:
+            fs (float): The sample frequency.
+            data (list of data): A list of numerical values to be plotted.
+
+        Returns:
+              None: The method displays the plot using plt.show().
+        """
+        n_samples = len(data)
+        # x axes, preparating the time
+        total_time = n_samples / fs
+        ax = np.linspace(0, total_time, n_samples)
+
+        plt.figure(figsize=(12, 8))
+
+        # different bands for brain waves
+        bands = [
+            {'name': 'Delta', 'limits': (0.5, 4), 'color': 'gray'},
+            {'name': 'Theta', 'limits': (4, 8), 'color': 'blue'},
+            {'name': 'Alpha', 'limits': (8, 13), 'color': 'green'},
+            {'name': 'Beta', 'limits': (13, 30), 'color': 'orange'},
+            {'name': 'Gamma', 'limits': (30, 45), 'color': 'red'},
+            {'name': 'Gamma+', 'limits': (45, 60), 'color': 'cyan'} #these waves are not actually relevant
+        ]
+        # figure 1: amplitude of the waves in microVolt in the time domain
+        plt.subplot(211)
+        plt.plot(ax[::100], data[::100], linewidth=0.5)
+        plt.title(f"Time Signal (Duration: {total_time:.2f} s)")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Amplitude [\u03bcV]")
+
+        # figure 2: Power analysis on a logarithmic scale [uV^2/Hz => dB/Hz]
+        plt.subplot(212)
+        plt.psd(data, NFFT=2048, Fs=fs, color='black', zorder=5)
+        for b in bands:
+            plt.axvspan(b['limits'][0], b['limits'][1],
+                        color=b['color'], alpha=0.2, label=b['name'])
+            # name of the band
+            plt.text((b['limits'][0] + b['limits'][1]) / 2, -20, b['name'],
+                     horizontalalignment='center', fontweight='bold', color=b['color'])
+
+        plt.title("Spectral Analysis (Frequency Bands)")
+        plt.xlim(0, 60) # limit on x axis
+        plt.legend()
+
+        plt.tight_layout()
+        plt.show()
+
+    @staticmethod
+    def draw_fourier_transform(fs, signal):
+        """
+            This method plots and computes the Fourier Transform of a given signal. the PSD (Power Spectral Density) of the data.
+
+            Args:
+                fs (float): The sample frequency.
+                signal (list of data): A list of numerical values to be plotted.
+
+            Returns:
+                a: frequency (np.ndarray): Array of frequencies (X axes), from 0 to fs/2.
+
+                transform (np.ndarray): Power density values (Y axes) in µV²/Hz.
+        """
+        # preparing the x axes (time)
+        n_samples = len(signal)
+
+        duration = n_samples / fs
+
+        t = np.linspace(0, duration, n_samples)
+
+        # Applying FFT
+        frequency = np.fft.fftfreq(len(t), 1 / fs)
+        transform = np.fft.fft(signal)
+
+        # Just positive half (fft is specular)
+        n = len(t) // 2
+
+        # bandwidth of brain waves
+        band_eeg = {
+            'Delta': (0.5, 4),
+            'Theta': (4, 8),
+            'Alpha': (8, 13),
+            'Beta': (13, 30),
+            'Gamma': (30, 45)
+        }
+
+
+        f_plot = frequency[:n]
+        amplitude_plot = np.abs(transform[:n])
+
+        # Plotting
+        plt.figure(figsize=(12, 5))
+
+        plt.subplot(1, 2, 1)
+        plt.plot(t, signal)
+        plt.title("Signal in time domain (Raw EEG)")
+        plt.xlabel("Time [s]")
+        plt.ylabel("Amplitude [\u03bcV]")
+
+        plt.subplot(1, 2, 2)
+
+        plt.plot(f_plot, amplitude_plot, color='black', lw=1)
+
+        colors = ['gray', 'blue', 'green', 'red', 'purple']
+        for i, (nome, (f_min, f_max)) in enumerate(band_eeg.items()):
+            plt.axvspan(f_min, f_max, color=colors[i], alpha=0.2, label=nome)
+        plt.title("Frequency Spectrum (Fourier)")
+        plt.xlabel("Frequency [Hz]")
+        plt.ylabel(r'$\mu V^2/Hz$')
+        plt.legend()
+        plt.xlim(0, 50)
+        plt.subplots_adjust(wspace=0.3)
+        plt.show()
+
+        return frequency, transform
 
 def main():
     pass
