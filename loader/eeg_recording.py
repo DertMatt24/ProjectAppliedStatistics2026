@@ -180,7 +180,7 @@ class EEGLoader:
                     the file.
                 :param patient_id: The id of the patient as assigned in the csv file
                 :param night_id: The id of the night as assigned in the csv file
-                :return: the eeg data, a tndarray.
+                :return: the eeg data, a ndarray.
                 """
         parent_directory = Path(parent_directory)
         file_name = EEGLoader._ids_to_file_name(patient_id, night_id)
