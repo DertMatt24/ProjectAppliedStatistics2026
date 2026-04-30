@@ -287,7 +287,7 @@ class TypesOfFPCA:
 
             # Creating legends
             legend_elements = [
-                Line2D([0], [0], color=color_media, lw=2, label='Media ($\mu$)'),
+                Line2D([0], [0], color=color_media, lw=2, label='Mean ($\mu$)'),
                 Line2D([0], [0], marker='+', color='none', markeredgecolor=color_plus,
                        markersize=10, label='Positive Variation (+)'),
                 Line2D([0], [0], marker='_', color='none', markeredgecolor=color_minus,

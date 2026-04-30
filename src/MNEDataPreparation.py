@@ -1,5 +1,3 @@
-import numpy as np
-
 from loader.eeg_recording import EEGLoader
 from matplotlib import pyplot as plt
 import mne
