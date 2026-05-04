@@ -45,6 +45,7 @@ class MNEDataPreparation:
         ch_names = ['Fp1-M2', 'C3-M2', 'O1-M2', 'Fp2-M1', 'C4-M1', 'O2-M1'] # taken from the dataset
         ch_types = ['eeg'] * len(ch_names)
 
+
         # Creating info and object Raw
         info = mne.create_info(ch_names, sfreq, ch_types)
         raw = mne.io.RawArray(data, info)
@@ -56,17 +57,17 @@ class MNEDataPreparation:
         }
         raw.rename_channels(mapping)
         raw.set_montage('standard_1020')
-
         return raw
 
 
 
     @staticmethod
-    def loading_data(patient_id, night_id):
+    def loading_data(patient_id, night_id, cut: int=None):
         """
         This method loads the eeg file from the folder saved locally, and it transforms this file
         into a RAW object (copy), to use it for eeg analysis.
 
+        :param cut:
         :param patient_id: id of the patient
         :param night_id: id of the night
         :return: Raw copy of the data, ready to be used by MNE library.
@@ -74,14 +75,18 @@ class MNEDataPreparation:
         # finding local file path
         file_path = MNEDataPreparation.__read_directory()
         # loading the npy file into the system
-        data = EEGLoader.load_returning_npy(file_path, patient_id, night_id)
+        data: np.ndarray = EEGLoader.load_returning_npy(file_path, patient_id, night_id)
+        if cut is not None:
+            print(data.shape)
+            data = data[:, :cut-1]
+            print("DIOPORCO SHAPE", cut, data.shape)
 
         # Using the npy file, we extract the data contained in it and transform them into a RAW object;
         # already able to "communicate" with MNE library.
         raw = MNEDataPreparation.__correcting_data(data)
 
         r_copy = raw.copy()
-        r_copy.apply_function(lambda x: x * 1e-6)
+        r_copy.apply_function(lambda x: x * 1e-3)
 
         # Note: it returns a copy of raw data, since MNE modify the data saved in the folder.
         # Since this is a bad behaviour that not only gives error (the data are saved in read mode only),
@@ -90,7 +95,7 @@ class MNEDataPreparation:
         return r_copy
 
     @staticmethod
-    def cleansing_data(raw, l_freq=1.0, h_freq=None, toPlot= False):
+    def cleansing_data(raw, l_freq=1.0, h_freq=None, toPlot= False, do_ica: bool = True):
         """
         This method removes the noise from the eeg, through the .filter method, and removes noisy channel
         which could compromise our analysis (since the low number of our channels - 6 - typically the method
@@ -117,32 +122,34 @@ class MNEDataPreparation:
         # The actual number of iterations it took ICA.fit() to complete will be stored in the n_iter_
         # attribute.
         # to see other parameters: https://mne.tools/stable/generated/mne.preprocessing.ICA.html
-        ica = mne.preprocessing.ICA(n_components=6, random_state=97, max_iter=800)
+        ica = None
+        if do_ica:
+            ica = mne.preprocessing.ICA(n_components=6, random_state=97, max_iter=800)
 
-        # Run the ICA decomposition on raw data.
-        ica.fit(raw_filtered)
+            # Run the ICA decomposition on raw data.
+            ica.fit(raw_filtered)
 
-        # raw_filtered.set_channel_types({'Fp1': 'eog', 'Fp2': 'eog'})
-        eog_channels = ['Fp1', 'Fp2']
-        eog_idx, scores = ica.find_bads_eog(raw_filtered, ch_name= eog_channels)
+            # raw_filtered.set_channel_types({'Fp1': 'eog', 'Fp2': 'eog'})
+            eog_channels = ['Fp1', 'Fp2']
+            eog_idx, scores = ica.find_bads_eog(raw_filtered, ch_name= eog_channels)
 
-        ica.exclude = eog_idx
+            ica.exclude = eog_idx
 
-        if toPlot:
-            ica.plot_scores(scores)
+            if toPlot:
+                ica.plot_scores(scores)
 
-            if not ica.exclude:
-                ica.plot_components()
-                ica.plot_properties(raw_filtered)
-            else:
-                ica.plot_properties(raw_filtered, picks=ica.exclude)
+                if not ica.exclude:
+                    ica.plot_components()
+                    ica.plot_properties(raw_filtered)
+                else:
+                    ica.plot_properties(raw_filtered, picks=ica.exclude)
 
-            plt.show()
+                plt.show()
 
         return raw_filtered, ica
 
     @staticmethod
-    def creating_epochs(raw, duration= 30.0, toPlot= False):
+    def creating_epochs(raw, duration= 30.0, toPlot= False) -> mne.Epochs:
         """
         This method partitions the raw data into smaller data - epochs (MNE class)
         :param raw: Raw data (MNE class)
@@ -164,7 +171,7 @@ class MNEDataPreparation:
         epochs = mne.Epochs(
             raw,
             events,
-            event_id={'30s_window': id},
+            event_id={f'{duration}s_window': id},
             tmin=tmin,
             tmax=tmax_adjusted,
             baseline=None,  # Do not apply baseline correction for continuous partitioning
@@ -179,7 +186,7 @@ class MNEDataPreparation:
             # it shows one epoch, for all the 6 channels
             epochs.plot(n_epochs=1, n_channels=6, scalings='auto')
 
-            epochs.compute_psd(fmin=1,fmax=40)
+            epochs.compute_psd(fmin=1, fmax=40)
             epochs.plot_psd()
             plt.show()
 

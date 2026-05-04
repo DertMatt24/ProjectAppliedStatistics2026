@@ -133,7 +133,7 @@ class EEGRecording:
         return EEGLoader.load(parent_directory, patient_id, night_id)
 
 class EEGLoader:
-    """ An helper loader class for the EEG recording data, which uses internally
+    """ A helper loader class for the EEG recording data, which uses internally
     the default numpy loader for the npy data contained in the original Kaggle dataset at
 
     https://www.kaggle.com/datasets/yfrite/polysom?select=patients.csv
@@ -172,7 +172,7 @@ class EEGLoader:
         return eeg_data
 
     @staticmethod
-    def load_returning_npy(parent_directory: Union[str, Path], patient_id: int, night_id: int) -> Union[EEGRecording, None]:
+    def load_returning_npy(parent_directory: Union[str, Path], patient_id: int, night_id: int) -> Union[np.ndarray, None]:
         """ Load an EEG associated with a given patient and a given night into an EEGRecording wrapper
                 object.
 
