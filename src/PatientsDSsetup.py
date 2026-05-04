@@ -1,9 +1,4 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-from loader.eeg_recording import EEGLoader
 from loader.patients import PatientsCSVLoader
-from scipy.stats import kurtosis, skew
 import numpy as np
 from pathlib import Path
 
