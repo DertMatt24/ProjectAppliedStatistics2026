@@ -9,11 +9,13 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+# Filling the samples with the couples of patient and night id
 samples = []
-for i in range(1, 40):
-    for j in range(1, 2 + 1):
-        samples.append((i, j))
+for patient_id in range(1, 40 + 1):
+    for night_id in range(1, 2 + 1):
+        samples.append((patient_id, night_id))
 
+# Removing problematic samples (Totally not understandable)
 samples.remove((8, 1))
 samples.remove((14, 2))
 

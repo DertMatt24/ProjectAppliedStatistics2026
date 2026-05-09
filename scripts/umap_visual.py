@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     mne.set_log_level('ERROR')
     completed_samples = []
-    for i in range(1, 40):
+    for i in range(1, 40 + 1):
         for j in range(1, 2 + 1):
             completed_samples.append((i, j))
 

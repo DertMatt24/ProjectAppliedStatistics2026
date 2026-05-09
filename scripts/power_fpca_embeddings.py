@@ -17,53 +17,79 @@ import mne
 
 if __name__ == '__main__':
 
+    # Setting the verbosity of the messages to print (DEBUG, INFO, WARNING, ERROR, or CRITICAL)
     mne.set_log_level('ERROR')
-    samples = []
-    for i in range(1, 40):
-        for j in range(1, 2 + 1):
-            samples.append((i, j))
 
+    # Filling the samples with the couples of patient and night id
+    samples = []
+    for patient_id in range(1, 40 + 1):
+        for night_id in range(1, 2 + 1):
+            samples.append((patient_id, night_id))
+
+    # Removing problematic samples (Totally not understandable)
     samples.remove((8, 1))
     samples.remove((14, 2))
 
     # patients = np.random.choice(range(1, 40), size=60, replace=False, p=None)
+    # samples = [(patient, 1) for patient in patients (1, 1)]
 
-    #samples = [
-    #    (patient, 1) for patient in patients
-    (1, 1)
-    #]
-
+    # Instead of representing my EEG signal with thousands of points, I want to approximate it using only
+    # K smooth curves.
+    # My signal ≈ a_1·basis_1 + a_2·basis_2 + ... + a_k·basis_k
+    K = 12  # output dimensions per channel
+    basis = BSplineBasis(n_basis=K)  # = [b_1(t), b_2(t), ..., b_k(t)]
     X = []
-    K = 12 # output dimensions per channel
-    basis = BSplineBasis(n_basis=K)
-
+    completed_samples = []  # store the correctly processed samples
     sub_inputs = []
     ep_amt = 0
-    completed_samples = []
-    for (p_id, n_id) in samples:
 
-        print(f"ANALYZING {p_id}, {n_id}")
+    for (patient_id, night_id) in samples:
+
+        print(f"ANALYZING {patient_id}, {night_id}")
 
         try:
-            data = MNEDataPreparation.loading_data(p_id, n_id, cut=5000000)
+            # loading the eeg file from the folder saved locally
+            cut = 5000000  # amount of samples to keep
+            data = MNEDataPreparation.loading_data(patient_id, night_id, cut=cut)
+            # applying filters, removing noise, and maybe prepares ICA
             filtered, ica = MNEDataPreparation.cleansing_data(data, do_ica=False)
-            epochs = MNEDataPreparation.creating_epochs(filtered, 60)
+            # Splits the cleaned EEG into chunks of n seconds.
+            n = 60
+            epochs = MNEDataPreparation.creating_epochs(filtered, duration=n)
+
         except Exception:
             continue
-        completed_samples.append((p_id, n_id))
+
+        # store the sample correctly processed
+        completed_samples.append((patient_id, night_id))
+        # amount of epochs for the current sample
         ep_amt = len(epochs)
-        # Compute power spectral density
         print("NUM EPOCHS: ", ep_amt)
+
+        # Compute power spectral density (this tells us how much of each frequency exists)
         spectrum = epochs.compute_psd(fmax=30.0)
 
         # Extract the data
-        psds, freqs = spectrum.get_data(return_freqs=True)
+        psds, frequencies = spectrum.get_data(return_freqs=True)
+        print(f"PSD shape: {psds.shape}")  # (n_epochs, n_channels, n_frequencies)
+        # This is a temporary comment just to properly visualize and understand what is in psds. Imagine
+        # if 2 epochs and 2 channels with 5 frequencies. Each entry represent how strong is that frequency in that
+        # signal as combination of epoch and channel
+        # psds =
+        # [
+        #   [   # epoch 0
+        #     [0.1, 0.5, 0.2, 0.1, 0.0],   # channel 0
+        #     [0.3, 0.2, 0.4, 0.1, 0.0]    # channel 1
+        #   ],
+        #   [   # epoch 1
+        #     [0.2, 0.6, 0.1, 0.0, 0.0],
+        #     [0.1, 0.3, 0.5, 0.2, 0.0]
+        #   ]
+        # ]
+        print(f"Freq shape: {frequencies.shape}")  # (n_frequencies,)
 
-        print(f"PSD shape: {psds.shape}")  # (n_epochs, n_channels, n_freqs)
-        print(f"Freq shape: {freqs.shape}")  # (n_freqs,)
-        # psds shape: (n_epochs, n_channels, n_freqs)
-        # freqs shape: (n_freqs,)
-
+        # The bands that we are considering
+        # TODO: why are we assuming to discard gamma? Based on data or on scientific texts?
         bands = {
             'delta': (0.5, 4),
             'theta': (4, 8),
@@ -72,12 +98,14 @@ if __name__ == '__main__':
             # 'gamma': (30, 40)
         }
 
+        # Creating a dictionary with an empty list for each band
         band_powers = {band: [] for band in bands}
 
         for epoch in range(ep_amt):
             for band_name, (f_low, f_high) in bands.items():
-                band_mask = (freqs >= f_low) & (freqs <= f_high)
-                power = trapezoid(psds[epoch, :, band_mask].T, freqs[band_mask], axis=1)
+                band_mask = (frequencies >= f_low) & (frequencies <= f_high)
+                # Computing the total power of each channel inside a frequency band
+                power = trapezoid(psds[epoch, :, band_mask].T, frequencies[band_mask], axis=1)
                 band_powers[band_name].append(power)
 
         # Convert to arrays: (n_epochs, 6 channels)
@@ -89,13 +117,20 @@ if __name__ == '__main__':
         # Transpose to (6, n_epochs) per band, then stack bands
 
         channel_curves = []
-        for ch in range(6):
+        for channel in range(6):
             # Stack all bands for this channel: (5 bands, n_epochs)
-            curves = np.array([band_powers[band][epoch, ch] for band in bands for epoch in range(ep_amt)])
+            curves = np.array([band_powers[band][epoch, channel]
+                               for band in bands
+                               for epoch in range(ep_amt)])
             curves = curves.reshape(len(bands), ep_amt)
+            # curves[0, :] → delta power over time
+            # curves[1, :] → theta power over time
+            # curves[2, :] → alpha power over time
+            # curves[3, :] → beta power over time
+            # For the current channel
             channel_curves.append(curves)
 
-        channel_curves = np.array(channel_curves)
+        channel_curves = np.array(channel_curves)  # Collection of the power curves for each channel
         sub_inputs.append(channel_curves)
         # channel_curves[0] is (5 bands, n_epochs) for channel 0
         # channel_curves[1] is (5 bands, n_epochs) for channel 1, etc.
@@ -106,37 +141,47 @@ if __name__ == '__main__':
     all_curves = []
     indices = []  # Track which recording/channel/band each curve belongs to
 
-    for rec in range(len(completed_samples)):
-        for ch in range(6):
+    for recording in range(len(completed_samples)):
+        for channel in range(6):
             for band in range(4):
-                curve = sub_inputs[rec, ch, band, :]
+                curve = sub_inputs[recording, channel, band, :]
                 all_curves.append(curve)
-                indices.append((rec, ch, band))
+                indices.append((recording, channel, band))
 
     fd = FDataGrid(all_curves)
 
     basis_fd = fd.to_basis(basis)
     fpca = FPCA(n_components=K,  # components shown at video, no larger than original data
                 centering=True,  # Subtract the average curve of the data
-        components_basis=basis,  # Spline FPCA
-    )
+                components_basis=basis,  # Spline FPCA
+                )
 
     fpca.fit(basis_fd)
 
-    # After fitting fpca
+    # After fitting fpca each signal:
+    # mean + c_1·principal_1 + c_2·principal_2 + ... + c_k·principal_k
+    # where:
+    # - mean function = fpca.mean_
+    # - principal components (the new basis) = fpca.components_  [principal_1(t), ..., principal_k(t)]
+    # - scores = fpca.transform(basis_fd)  # Shape: (n_signal, K) i.e. for each signal [c_1, c_2, ..., c_k]
     # scores = fpca.transform(basis_fd)  # Shape: (n_subwindows, K)
     from sklearn.preprocessing import StandardScaler
 
     scores = fpca.transform(basis_fd)
+    # Standardizing the scores (i.e. new_value = (value - mean) / std)
+    # Why do we do that? Because without scaling some features dominate others (some very large values, some very small)
     scores_scaled = StandardScaler().fit_transform(scores)
+    # scores_scaled.shape = (n_curves, K) where n_curves = n_recordings × 6 channels × 4 bands
 
     # Reconstruct per EEG
     X = []
     # Recompose per recording
     embeddings = []
-    for rec in range(len(completed_samples)):
+    # For each recording:
+    for recording in range(len(completed_samples)):
+        # Indices stores [(recording, channel, band)]
         rec_embedding = scores_scaled[
-            [i for i, (r, c, b) in enumerate(indices) if r == rec]
+            [i for i, (r, c, b) in enumerate(indices) if r == recording]
         ].flatten()
         X.append(rec_embedding)
 
@@ -144,8 +189,10 @@ if __name__ == '__main__':
     print("SHAPE X", X.shape)
     np.save(f"C:/Users/picul/Videos/Applied/Dataset_Full/Embeddings/fpca_of_power_embeddings.npy", X)
     import umap
-
-    reducer = umap.UMAP(n_components=2)
+    # non-linear dimensionality reduction method, passes from X.shape = (n_recordings, huge_dimension) to
+    # X_2d = (n_recordings, n_components)
+    n_components = 2
+    reducer = umap.UMAP(n_components=n_components)
     X_2d = reducer.fit_transform(np.array(X))
 
     # PCA instead of UMAP
@@ -155,6 +202,7 @@ if __name__ == '__main__':
     #  plt.scatter(X_2d[:, 0], X_2d[:, 1])
     # plt.show()
 
+    # ==================================== Plotting Section ==========================================================
     plt.figure(figsize=(10, 8))
     plt.scatter(X_2d[:, 0], X_2d[:, 1])
 
@@ -168,24 +216,21 @@ if __name__ == '__main__':
 
     # Extract attack counts for each sample
     attack_counts = []
-    for (p_id, n_id) in completed_samples:
+    for (patient_id, night_id) in completed_samples:
         # Query the dataframe for this patient/night pair
-        row = df[(df['user_id'] == p_id) & (df['night_id'] == n_id)]
-
+        row = df[(df['user_id'] == patient_id) & (df['night_id'] == night_id)]
+        # Store the number of attacks
         attacks = row.iloc[0]['NAp']
-
         # Handle empty/NaN values
         if pd.isna(attacks) or attacks == '' or attacks == 'NaN':
             attacks = 0
         else:
             attacks = int(attacks)  # Convert to int if it's a string
-
         attack_counts.append(attacks)
-
     attack_counts = np.array(attack_counts)
-
     print("Attacks counts: ", attack_counts)
 
+    # ==================================== Plotting Section ==========================================================
     # Plot with green-to-red colormap
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(X_2d[:, 0], X_2d[:, 1],
@@ -200,4 +245,4 @@ if __name__ == '__main__':
     plt.ylabel('UMAP 2')
     plt.title('UMAP of EEG FPCA Features (colored by attacks)')
     plt.show()
-    # Reshape and average
+    # ================================================================================================================

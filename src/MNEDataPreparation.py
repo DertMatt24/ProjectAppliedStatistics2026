@@ -77,7 +77,7 @@ class MNEDataPreparation:
         if cut is not None:
             print(data.shape)
             data = data[:, :cut-1]
-            print("DIOPORCO SHAPE", cut, data.shape)
+            print("SHAPE", cut, data.shape)
 
         # Using the npy file, we extract the data contained in it and transform them into a RAW object;
         # already able to "communicate" with MNE library.
@@ -104,6 +104,7 @@ class MNEDataPreparation:
         :param l_freq:frequency of low cutoff in pass-band filter (default 1.0).
         :param h_freq: frequency of high cutoff in pass-band filter (default None).
         :param toPlot: boolean to represent the data on screen (default False).
+        :param do_ica:
         :return: It returns the ICA (Independent Component Analysis) (MNE class)
         """
         raw_notched = raw.copy().notch_filter(freqs=50)
