@@ -25,83 +25,90 @@ if __name__ == '__main__':
     completed_samples.remove((8, 1))
     completed_samples.remove((14, 2))
 
-    if True:
-        # patients = np.random.choice(range(1, 40), size=60, replace=False, p=None)
+    # patients = np.random.choice(range(1, 40), size=60, replace=False, p=None)
 
-        samples = [
-            #    (patient, 1) for patient in patients
-            (1, 1)
-        ]
+   # samples =
+    [
+        #    (patient, 1) for patient in patients
+        (1, 1), (2, 2)
+    ]
 
-        X = []
-        K = 4  # output dimensions per channel
-        basis = BSplineBasis(n_basis=K)
+    X = []
+    K = 4  # output dimensions per channel
+    basis = BSplineBasis(n_basis=K)
 
-        sub_inputs = []
-        ep_amt = 0
-        completed_samples = []
-        for (p_id, n_id) in samples:
+    sub_inputs = []
+    ep_amt = 0
+    samples = completed_samples
 
-            print(f"ANALYZING {p_id}, {n_id}")
+    # completed_samples = []
+    for (p_id, n_id) in samples:
 
-            try:
-                data = MNEDataPreparation.loading_data(p_id, n_id, cut=3000000)
-                filtered, ica = MNEDataPreparation.cleansing_data(data, do_ica=False)
-                epochs = MNEDataPreparation.creating_epochs(filtered, 60)
-            except Exception:
-                continue
-            completed_samples.append((p_id, n_id))
-            ep_amt = len(epochs)
-            # Compute power spectral density
-            print("NUM EPOCHS: ", ep_amt)
-            spectrum = epochs.compute_psd(fmax=40.0)
+        break
+        print(f"ANALYZING {p_id}, {n_id}")
 
-            # Extract the data
-            psds, freqs = spectrum.get_data(return_freqs=True)
+        try:
+            data = MNEDataPreparation.loading_data(p_id, n_id, cut=5000000)
+            filtered, ica = MNEDataPreparation.cleansing_data(data, do_ica=False)
+            epochs = MNEDataPreparation.creating_epochs(filtered, 60)
+        except Exception:
+            continue
+        completed_samples.append((p_id, n_id))
+        ep_amt = len(epochs)
+        # Compute power spectral density
+        print("NUM EPOCHS: ", ep_amt)
+        spectrum = epochs.compute_psd(fmax=40.0)
 
-            print(f"PSD shape: {psds.shape}")  # (n_epochs, n_channels, n_freqs)
-            print(f"Freq shape: {freqs.shape}")  # (n_freqs,)
+        # Extract the data
+        psds, freqs = spectrum.get_data(return_freqs=True)
 
-            # eeg = EEGLoader.load('C:/Users/picul/Videos/Applied/Dataset/', 1, 1)
-            # print(eeg.data)
+        print(f"PSD shape: {psds.shape}")  # (n_epochs, n_channels, n_freqs)
+        print(f"Freq shape: {freqs.shape}")  # (n_freqs,)
 
-            last_shape = psds.shape[2]
+        # eeg = EEGLoader.load('C:/Users/picul/Videos/Applied/Dataset/', 1, 1)
+        # print(eeg.data)
 
-            # psds shape: (n_epochs, n_channels, n_freqs)
-            # freqs shape: (n_freqs,)
+        last_shape = psds.shape[2]
 
-            bands = {
-                'delta': (0.5, 4),
-                'theta': (4, 8),
-                'alpha': (8, 12),
-                'beta': (12, 30),
-                'gamma': (30, 40)
-            }
+        # psds shape: (n_epochs, n_channels, n_freqs)
+        # freqs shape: (n_freqs,)
 
-            band_powers = {}
-            for band_name, (f_low, f_high) in bands.items():
-                # Get frequency indices in band
-                band_mask = (freqs >= f_low) & (freqs <= f_high)
+        bands = {
+            'delta': (0.5, 4),
+            'theta': (4, 8),
+            'alpha': (8, 12),
+            'beta': (12, 30),
+            'gamma': (30, 40)
+        }
 
-                # Integrate (trapz for proper integration, or just mean)
-                from scipy.integrate import trapezoid
+        band_powers = {}
+        for band_name, (f_low, f_high) in bands.items():
+            # Get frequency indices in band
+            band_mask = (freqs >= f_low) & (freqs <= f_high)
 
-                band_power = trapezoid(psds[:, :, band_mask], freqs[band_mask], axis=2)
-                # shape: (n_epochs, n_channels)
+            # Integrate (trapz for proper integration, or just mean)
+            from scipy.integrate import trapezoid
 
-                band_powers[band_name] = band_power
+            band_power = trapezoid(psds[:, :, band_mask], freqs[band_mask], axis=2)
+            # shape: (n_epochs, n_channels)
 
-            # Combine into feature matrix
-            features = np.hstack([band_powers[b] for b in bands.keys()]).flatten()
-            print("FEATURES SHAPE:", features.shape)
-            sub_inputs.append(features)
+            band_powers[band_name] = band_power
 
-            # ep_data: np.ndarray = epochs.get_data()
-            # num_ep = ep_data.shape[0]
+        for element in band_powers.values():
+            print("Shape of element: ", element.shape)
 
-            # for ep in range(num_ep):
-            #     for ch in range(6):
-            #         sub_inputs.append(ep_data[ep, :, ch])
+        result = np.concatenate([band_powers[k] for k in sorted(band_powers.keys())], axis=1)
+
+        # Combine into feature matrix
+        print("FEATURES SHAPE:", result.shape)
+        sub_inputs.append(result)
+
+        # ep_data: np.ndarray = epochs.get_data()
+        # num_ep = ep_data.shape[0]
+
+        # for ep in range(num_ep):
+        #     for ch in range(6):
+        #         sub_inputs.append(ep_data[ep, :, ch])
 
         """
         fd = FDataGrid(sub_inputs)
@@ -140,10 +147,52 @@ if __name__ == '__main__':
 
             idx += n_subwindows
         """
-        X = np.array(sub_inputs)
-        X = np.array(X)  # Shape: (n_eeg_recordings, n_subwindows * K)
+    # X = np.array(sub_inputs)
 
-    # X = np.load("C:/Users/picul/Videos/Applied/Dataset_Full/Embeddings/embeddings.npy")
+    # np.save("C:/Users/picul/Videos/Applied/Dataset_Full/Embeddings/windowed_power_embeddings.npy", X)
+    X = np.load("C:/Users/picul/Videos/Applied/Dataset_Full/Embeddings/windowed_power_embeddings.npy")
+    # X = X.reshape(X.shape[0], -1)
+
+    spectral_centroids = []
+
+    for example in X:
+        # example shape: (num_windows, 30)
+        num_windows = example.shape[0]
+        n_bands = 5
+        n_channels = 6
+        band_names = ['delta', 'theta', 'alpha', 'beta', 'gamma']
+        freqs = np.array([2, 6, 10, 20, 40])
+
+        channel_centroids = np.zeros((n_channels, num_windows))
+
+        for ch in range(n_channels):
+            # Extract power for this channel across all bands and windows
+            power_all_bands = example[:, ch::n_channels]  # (num_windows, n_bands)
+
+            # Apply spectral_centroid
+            centroid = np.sum(power_all_bands * freqs, axis=1) / np.sum(power_all_bands, axis=1)
+
+            window_size = 3
+            filtered = np.convolve(centroid, np.ones(window_size) / window_size, mode='same')
+            channel_centroids[ch, :] = filtered
+
+        spectral_centroids.append(channel_centroids)
+
+    spectral_centroids = np.array(spectral_centroids)
+    np.save("C:/Users/picul/Videos/Applied/Dataset_Full/Embeddings/spectral_centroids.npy", spectral_centroids)
+
+    # Shape: (num_examples, num_channels, num_windows)
+
+    print("Shape: ", spectral_centroids.shape)
+    plt.plot(spectral_centroids[0].T)
+
+    plt.show()
+
+
+    print(X.shape)
+
+    exit(0)
+
     import umap
 
     reducer = umap.UMAP(n_components=2)
@@ -160,8 +209,13 @@ if __name__ == '__main__':
     plt.scatter(X_2d[:, 0], X_2d[:, 1])
 
     print("Shape: ", X_2d.shape)
-    for i, (p_id, n_id) in enumerate(completed_samples):
-        plt.annotate(f"{p_id}_{n_id}", (X_2d[i, 0], X_2d[i, 1]), fontsize=8)
+    # for i, (p_id, n_id) in enumerate(completed_samples):
+        #plt.annotate(f"{p_id}_{n_id}", (X_2d[i, 0], X_2d[i, 1]), fontsize=8)
+
+
+    for i in range(X.shape[0]):
+        plt.annotate(f"{i}", (X_2d[i, 0], X_2d[i, 1]), fontsize=8)
+
 
     plt.show()
     df = PatientsCSVLoader.load_dataframe('C:/Users/picul/Videos/Applied/Dataset_Full/patients.csv')
@@ -183,8 +237,10 @@ if __name__ == '__main__':
 
         attack_counts.append(attacks)
 
+    print(attack_counts)
     attack_counts = np.array(attack_counts)
 
+    attack_counts = np.arange(X.shape[0])
     print("Attacks counts: ", attack_counts)
 
     # Plot with green-to-red colormap
@@ -202,35 +258,3 @@ if __name__ == '__main__':
     plt.title('UMAP of EEG FPCA Features (colored by attacks)')
     plt.show()
     # Reshape and average
-    """
-    emb_size = 120
-
-    avg_window_size = (np.size(psds[:, :, :last_shape-1]))//(6*emb_size*ep_amt)
-
-
-    psds_sub = psds[:, :, :last_shape-1].reshape(ep_amt, 6, emb_size, avg_window_size ).mean(axis=3)
-    freqs_sub = freqs[:last_shape-1].reshape(emb_size, avg_window_size ).mean(axis=1)
-
-    print(psds_sub.shape)  # (481, 6, 240)
-    print(freqs_sub.shape)  # (240,)
-
-    from sklearn.cluster import KMeans
-
-    psds_sub_normalized = (psds_sub - psds_sub.mean(axis=0, keepdims=True)) / \
-                          (psds_sub.std(axis=0, keepdims=True) + 1e-8)
-    psds_flat = psds_sub_normalized.reshape(ep_amt, 6 * emb_size)
-    kmeans = KMeans(n_clusters=2, random_state=42)
-    labels = kmeans.fit_predict(psds_flat)  # (481,)
-    print(labels)
-
-    print(labels.sum())
-
-    import skfuzzy as fuzz
-
-    cntr, fuzzy_labels, _, _, _, _, _ = fuzz.cluster.cmeans(
-        np.array(psds_flat), c=5, m=1.3, error=1e-5, maxiter=1000
-    )
-    for i in range(5):
-        plt.plot(fuzzy_labels[i])
-    plt.show()
-    """
