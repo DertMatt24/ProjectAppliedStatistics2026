@@ -1,7 +1,7 @@
 from loader.eeg_recording import EEGLoader
 from matplotlib import pyplot as plt
 import mne
-
+import numpy as np
 from pathlib import Path
 
 class MNEDataPreparation:
@@ -108,7 +108,7 @@ class MNEDataPreparation:
         :return: It returns the ICA (Independent Component Analysis) (MNE class)
         """
         raw_notched = raw.copy().notch_filter(freqs=50)
-        raw_filtered = raw_notched.copy().filter(l_freq=l_freq, h_freq=h_freq)
+        raw_filtered = raw_notched.copy().filter(l_freq=l_freq, h_freq=h_freq, h_trans_bandwidth=2.0)
 
         # n_components: between 1 and the number of channels. In our case 6 channels: view documentation
         # random_state: A seed for the NumPy random number generator (RNG).
@@ -123,7 +123,7 @@ class MNEDataPreparation:
         # to see other parameters: https://mne.tools/stable/generated/mne.preprocessing.ICA.html
         ica = None
         if do_ica:
-            ica = mne.preprocessing.ICA(n_components=6, random_state=97, max_iter=800)
+            ica = mne.preprocessing.ICA(n_components=6, max_iter=800)
 
             # Run the ICA decomposition on raw data.
             ica.fit(raw_filtered)
@@ -133,7 +133,7 @@ class MNEDataPreparation:
             eog_idx, scores = ica.find_bads_eog(raw_filtered, ch_name= eog_channels)
 
             ica.exclude = eog_idx
-
+            raw_filtered = ica.apply(raw_filtered)
             if toPlot:
                 ica.plot_scores(scores)
 

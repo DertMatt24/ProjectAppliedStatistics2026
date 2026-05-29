@@ -71,9 +71,10 @@ def main():
     df = PatientsDSsetup.add_BMI(p)
 
     df_prep = prep(df)
+    #df_prep = df_prep[df_prep.sex == 0].copy()
 
     # selecting predictors and to predict
-    X = df_prep[['BMI', 'age', 'sex', 'ODI', 'pulse']].copy()
+    X = df_prep[['BMI', 'age', 'sex','ODI','pulse']].copy()
     # AHI, HI, AI, NHyp, NAp
     y = df_prep['AHI']
 
@@ -81,11 +82,23 @@ def main():
     model = LinearRegression()
     #model = RandomForestRegressor()
 
-    selector = FeatureSelection.recursive_feature_elimination(model, X, y, 3)
+    print("Mutual Information")
+    mi_scores = FeatureSelection.computing_mi_scores(X, y)
 
 
 
+    print("RFE with cv k_fold")
+    rfe_k_fold(X, y, model, 5)
 
+    print("Backward elimination")
+    feature, model_sel = FeatureSelection.backward_elimination(X, y)
+    FeatureSelection.be_score(X, y, model_sel)
+    print(feature)
+
+    print("Forward selection")
+    selected_features, s = FeatureSelection.forward_selection(model, X, y, 5, 3)
+    print(selected_features)
+    FeatureSelection.fs_score(model, X, y, selected_features, 5)
     ##################################################################################
 
 

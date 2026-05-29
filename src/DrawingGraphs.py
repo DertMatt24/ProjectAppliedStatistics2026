@@ -3,6 +3,9 @@ import seaborn as sns
 import pandas as pd
 import numpy as np
 
+from src.PatientsDSsetup import PatientsDSsetup
+
+
 # user_id - Unique user id [Range 1-40]
 # night_id - Night id of the row [Range 1-2]
 # age - Age of the patient [Years]
@@ -34,7 +37,7 @@ class DrawingGraphs:
         raise SyntaxError("Cannot instantiate PatientsDSsetup, it is an utility static class!")
 
     @staticmethod
-    def draw_correlation_matrix(df, num_vars):
+    def draw_correlation_matrix(df, num_vars, title, color):
         """
         Method to draw and compute the correlation matrix
         Args:
@@ -49,8 +52,8 @@ class DrawingGraphs:
         corr_mat = df[num_vars].corr()
 
         plt.figure(figsize=(12, 9))
-        sns.heatmap(corr_mat, cmap="Blues", annot=True)
-        plt.title('Correlation Matrix Heatmap')
+        sns.heatmap(corr_mat, cmap=color, annot=True)
+        plt.title(title)
         plt.show()
 
         return corr_mat
